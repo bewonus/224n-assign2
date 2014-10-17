@@ -31,6 +31,7 @@ public class PCFGParser implements Parser {
       // Build lexicon and grammar
       lexicon = new Lexicon(trainTrees);
       grammar = new Grammar(trainTrees);
+      System.out.println(grammar);
     }
 
   /**
@@ -40,16 +41,21 @@ public class PCFGParser implements Parser {
    */
     public Tree<String> getBestParse(List<String> sentence) {
 
+    	
+    	
       // Stores log-probability scores associated with a given span and tag (triple)
       Counter<Triplet<Integer, Integer, String>> scores =
         new Counter<Triplet<Integer, Integer, String>>();
 
+      	  				    
       // Stores set of tags based on their span (i.e. which
       // tags are in a specific square of the parse triangle)
       HashMap<Pair<Integer, Integer>, Set<String>> spanToTags = new HashMap<Pair<Integer, Integer>, Set<String>>();
 
-      // TODO: setup back pointers data structure
-
+      //MAP START,END,TAG  --> SPLIT, LEFT TAG, RIGHT TAG
+      HashMap<Triplet<Integer,Integer,String>,Triplet<Integer,String,String> > back = new HashMap<Triplet<Integer,Integer,String>,Triplet<Integer,String,String> >();
+      
+      
       // Iterate through words and lexicon and add first layer of scores to parse triangle
       int numWords = sentence.size();
       for (int i = 0; i < numWords; i++) {
@@ -66,6 +72,7 @@ public class PCFGParser implements Parser {
           }
           tags.add(tag);
           spanToTags.put(span, tags);
+          System.out.println(spanToTags);
         }
 
         // Handle unaries
@@ -75,6 +82,7 @@ public class PCFGParser implements Parser {
 
           // Iterate over all grammar rules (uses both for loops)
           for (String child : grammar.unaryRulesByChild.keySet()) {
+        	  System.out.println("AAAAAAAAAAAAAAABBBBBBBBBBB");
             for (UnaryRule unaryRule : grammar.getUnaryRulesByChild(child)) {
               double prob = Math.log(unaryRule.getScore()) +
                 scores.getCount(new Triplet<Integer, Integer, String>(i, i+1, child));
@@ -82,7 +90,7 @@ public class PCFGParser implements Parser {
                 new Triplet<Integer, Integer, String>(i, i+1, unaryRule.getParent());
 
               // Update scores if we've found a better unary promotion rule
-              if (prob > scores.getCount(parentTriplet)) {
+              if (scores.containsKey(parentTriplet) && prob > scores.getCount(parentTriplet)) {
                 scores.setCount(parentTriplet, prob);
 
                 // Add tag to the span map
@@ -93,7 +101,11 @@ public class PCFGParser implements Parser {
                 }
                 tags.add(unaryRule.getParent());
                 spanToTags.put(spanKey, tags);
-
+                System.out.println(spanToTags);
+                Triplet<Integer, String, String> childTriplet =
+                        new Triplet<Integer, String, String>(-1,null,child);
+                
+                back.put(parentTriplet, childTriplet);
                 // TODO: update back pointers
 
                 added = true;
@@ -108,33 +120,49 @@ public class PCFGParser implements Parser {
         for (int begin = 0; begin <= numWords - span; begin++) {
           int end = begin + span;
           for (int split = begin + 1; split <= end - 1; split++) {
-
+        	  System.out.println("BEGIN : "+ begin);
+        	  System.out.println("END : "+ end);	
             // Get left children and right children, and all potential binary rules from these
             Set<String> leftChildren = spanToTags.get(new Pair<Integer, Integer>(begin, split));
             Set<String> rightChildren = spanToTags.get(new Pair<Integer, Integer>(split, end));
+            System.out.println("leftChildren: " + leftChildren);
+            System.out.println("rightChildren: " +rightChildren);
             Set<BinaryRule> leftRules = new HashSet<BinaryRule>();
             Set<BinaryRule> rightRules = new HashSet<BinaryRule>();
+            if(rightChildren == null || leftChildren == null){
+            	continue;
+            	//System.out.println(spanToTags);
+         
+            }
             for (String leftChild : leftChildren) {
               leftRules.addAll(grammar.getBinaryRulesByLeftChild(leftChild));
             }
+            
+            System.out.println("rightChildren: " +rightChildren);
             for (String rightChild : rightChildren) {
+            	System.out.println("righChild: " + rightChild);
+            	System.out.println("grammarBinary: " +grammar.getBinaryRulesByRightChild(rightChild) );
               rightRules.addAll(grammar.getBinaryRulesByRightChild(rightChild));
+              System.out.println("rightRules: " + rightRules);
             }
-
+            System.out.println("leftRules: " + leftRules);
+            System.out.println("rightRules: " + rightRules);
             // Keep all rules in leftRules intersect rightRules
             // (these are the relevant rules to check)
             leftRules.retainAll(rightRules);
 
+            System.out.println("leftRules: " + leftRules);
             // Iterate through relevant rules and update scores
             for (BinaryRule binaryRule : leftRules) {
-              double prob = scores.getCount(new Triplet<Integer, Integer, String>(
+            	
+            	double prob = scores.getCount(new Triplet<Integer, Integer, String>(
                 begin, split, binaryRule.getLeftChild())) +
                 scores.getCount(new Triplet<Integer, Integer, String>(
                   split, end, binaryRule.getRightChild()));
 
               // Update scores if we've found a more probable parse
               Triplet<Integer, Integer, String> parentTriple = new Triplet<Integer, Integer, String>(begin, end, binaryRule.getParent());
-              if (prob > scores.getCount(parentTriple)) {
+              if (scores.containsKey(parentTriple) && prob > scores.getCount(parentTriple)) {
                 scores.setCount(parentTriple, prob);
 
                 // Add tag to the span map
@@ -145,9 +173,14 @@ public class PCFGParser implements Parser {
                 }
                 tags.add(binaryRule.getParent());
                 spanToTags.put(spanKey, tags);
+                System.out.println(spanToTags);
 
                 // TODO: update back pointers
-
+                Triplet<Integer, String, String> childTriplet =
+                        new Triplet<Integer, String, String>(split,binaryRule.getLeftChild(),binaryRule.getRightChild());
+                
+                back.put(parentTriple, childTriplet);
+                // TODO: update back pointers
               }
             }
           }
@@ -168,9 +201,12 @@ public class PCFGParser implements Parser {
                 // Update scores if we've found a better unary promotion rule
                 if (prob > scores.getCount(parentTriplet)) {
                   scores.setCount(parentTriplet, prob);
-
+                  
                   // TODO: update back pointers
-
+                  Triplet<Integer, String, String> childTriplet =
+                          new Triplet<Integer, String, String>(-1,null,child);
+                  
+                  back.put(parentTriplet, childTriplet);
                   added = true;
                 }
               }
@@ -178,8 +214,51 @@ public class PCFGParser implements Parser {
           }
         }
       }
-
       // TODO: build tree
-      return null;
+      return buildTree(scores,back,numWords);
     }
+    
+    private Triplet<Integer, Integer, String> getBestRoot(Counter<Triplet<Integer, Integer, String>> scores, int numWords){
+    	Set<Triplet<Integer, Integer, String>> keys = scores.keySet();
+    	String bestRootTag = null;
+    	double max = 0.0;
+    	for(Triplet<Integer, Integer, String> key : keys){
+    		if(key.getFirst() == 0 && key.getSecond() == numWords){
+    			if(bestRootTag == null || scores.getCount(key) > max){
+    				max = scores.getCount(key);
+    				bestRootTag = key.getThird();
+    			}
+    		}
+    	}
+    	return new Triplet<Integer, Integer, String>(0,numWords,bestRootTag);
+    }
+    
+    private Tree<String> merge(Tree<String> leftTree, Tree<String> rightTree,String currentTag) {
+        List<Tree<String>> children = new ArrayList<Tree<String>>();
+        if(leftTree == null) children.add(leftTree);
+        if(rightTree == null) children.add(rightTree);
+        return new Tree<String>(currentTag, children);
+    }
+
+    private Tree<String> recursiveBuildTree(HashMap<Triplet<Integer,Integer,String>,Triplet<Integer,String,String> > back,String currentTag,int begin,int end){
+    	if(currentTag == null) return null;
+    	
+    	Triplet<Integer,Integer,String> key = new Triplet<Integer,Integer,String>(begin,end,currentTag);
+    	Triplet<Integer,String,String> bestRules = back.get(key);
+    	//if at preterminal
+    	if(bestRules == null){
+    		return new Tree<String>(currentTag,new ArrayList<Tree<String>>());
+    	} 	
+    	Tree<String> leftTree = recursiveBuildTree(back, bestRules.getSecond(), begin,bestRules.getFirst());
+    	Tree<String> rightTree = recursiveBuildTree(back, bestRules.getThird(), bestRules.getFirst(),end);
+    	
+    	return merge(leftTree,rightTree,currentTag);
+    }
+    
+    private Tree<String> buildTree(Counter<Triplet<Integer, Integer, String>> scores, HashMap<Triplet<Integer,Integer,String>,Triplet<Integer,String,String> > back, int numWords){
+    	Triplet<Integer, Integer, String> bestRoot = getBestRoot(scores,numWords);
+    	//Tree<String> parsedTree = new Tree<String>();    	
+    	return recursiveBuildTree(back,bestRoot.getThird(),0,numWords);
+    }
+    
 }
