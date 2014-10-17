@@ -129,11 +129,6 @@ public class PCFGParser implements Parser {
             System.out.println("rightChildren: " +rightChildren);
             Set<BinaryRule> leftRules = new HashSet<BinaryRule>();
             Set<BinaryRule> rightRules = new HashSet<BinaryRule>();
-            if(rightChildren == null || leftChildren == null){
-            	continue;
-            	//System.out.println(spanToTags);
-         
-            }
             for (String leftChild : leftChildren) {
               leftRules.addAll(grammar.getBinaryRulesByLeftChild(leftChild));
             }
