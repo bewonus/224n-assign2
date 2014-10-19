@@ -81,23 +81,23 @@ public class PCFGParserTwo implements Parser{
     }
     
     private  Constituent<String> getBestRoot(Counter<Constituent<String>> scores,int numWords){
-    	double max = -1;
+    	return new Constituent<String>("ROOT",0,numWords);
+    	
+    	/*double max = -1;
     	Constituent<String> bestRoot = null;
     	for(Constituent<String> constituent : scores.keySet()){
-    		System.out.println("START: "+constituent.getStart() + "   END: "+ constituent.getEnd() );
     		if(scores.getCount(constituent) > max && constituent.getEnd() == numWords && constituent.getStart() == 0){
     			max = scores.getCount(constituent);
     			bestRoot = constituent;
     		}
     	}
-    	System.out.println("NUM WORDS : " + numWords);
-    	return bestRoot;
+    	return bestRoot;*/
     }
     
     private Tree<String> merge( Tree<String> t1, Tree<String> t2,Constituent<String> currentNode){
     	List<Tree<String>> children = new ArrayList<Tree<String>>();
         if(t1 != null) children.add(t1);
-        if(t2 != null) children.add(t1);
+        if(t2 != null) children.add(t2);
         return new Tree<String>(currentNode.getLabel(), children);
     }
     
@@ -110,6 +110,10 @@ public class PCFGParserTwo implements Parser{
     	//else, not not a terminal
     	Constituent<String> child1 = children.getFirst(); 
     	Constituent<String> child2 = children.getSecond();
+    	//call recursive build to remove unary rules, as long as child1 is a nonterminal.
+    	//if(child2 == null && back.get(child1) != null){
+    	//	return recursiveBuildTree(child1,back);
+    	//}
     	
     	Tree<String> subTree1 = recursiveBuildTree(child1,back);
     	Tree<String> subTree2 = recursiveBuildTree(child2,back);
@@ -133,7 +137,6 @@ public class PCFGParserTwo implements Parser{
     	 //populate lowest layer of the parse tree
     	 for(int i = 0; i < sentence.size() ; i++){
     		 getPretermRules(sentence,i,scores,back);
-    		 
     		 handleUnaries(sentence,i,i+1,scores,back,true);
     	 }
     	 
@@ -147,7 +150,7 @@ public class PCFGParserTwo implements Parser{
     	 //System.out.println(back);
     	 
     	 Tree<String> bestParse = buildTree(sentence,scores,back);
-    	 System.out.println(bestParse);
-    	 return bestParse;
+    	 System.out.println(TreeAnnotations.unAnnotateTree(bestParse));
+    	 return TreeAnnotations.unAnnotateTree(bestParse);
     }
 }
