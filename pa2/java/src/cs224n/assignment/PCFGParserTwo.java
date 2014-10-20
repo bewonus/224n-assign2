@@ -2,6 +2,7 @@ package cs224n.assignment;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 
 import cs224n.assignment.Grammar.BinaryRule;
@@ -27,19 +28,20 @@ public class PCFGParserTwo implements Parser{
       // Build lexicon and grammar
     	lexicon = new Lexicon(trainTrees);
     	grammar = new Grammar(trainTrees);
-    	System.out.println(grammar);
+    	//System.out.println(grammar);
     }
     
-    public void getPretermRules(List<String> sentence,int i,Counter<Constituent<String>> scores,HashMap<Constituent<String>,Pair<Constituent<String>,Constituent<String>>> back){
+    public void getPretermRules(List<String> sentence,int i,Counter<Constituent<String>> scores,HashMap<Constituent<String>,Pair<Constituent<String>,Constituent<String>>> back,HashMap<Pair<Integer,Integer>,HashSet<String>> seen){
     	for(String A:lexicon.tagCounter.keySet()){
     		double score = lexicon.scoreTagging(sentence.get(i), A);
     		scores.setCount(new Constituent<String>(A,i,i+1), score);
+    		addSeen(seen,i,i+1,A);
     		back.put(new Constituent<String>(A,i,i+1), new Pair<Constituent<String>,Constituent<String>>(new Constituent<String>(sentence.get(i),i,i),null));
     	}
     }
     
     
-    public void handleUnaries(List<String> sentence,int begin,int end,Counter<Constituent<String>> scores,HashMap<Constituent<String>,Pair<Constituent<String>,Constituent<String>>> back,boolean onlyUnary){
+    public void handleUnaries(List<String> sentence,int begin,int end,Counter<Constituent<String>> scores,HashMap<Constituent<String>,Pair<Constituent<String>,Constituent<String>>> back,boolean onlyUnary,HashMap<Pair<Integer,Integer>,HashSet<String>> seen){
     	boolean added = true;
     	while(added){
     		added = false;
@@ -49,8 +51,9 @@ public class PCFGParserTwo implements Parser{
     				Constituent<String> parentConstituent = new Constituent<String>(uRule.getParent(),begin,end);   					
     				if(!onlyUnary || scores.getCount(childConstituent) > 0 ){
     					double prob = scores.getCount(childConstituent) * uRule.getScore();
-    					if(prob > scores.getCount(parentConstituent)){
+    					if(prob > scores.getCount(parentConstituent)){	
     						scores.setCount(parentConstituent, prob);
+    						addSeen(seen,parentConstituent.getStart(),parentConstituent.getEnd(),parentConstituent.getLabel());
     						back.put(parentConstituent, new Pair<Constituent<String>,Constituent<String>>(childConstituent,null));
     					}
     				} 
@@ -59,11 +62,14 @@ public class PCFGParserTwo implements Parser{
     	}
     }
     
-    public void getBinaryRules(List<String> sentence,int span,int begin,Counter<Constituent<String>> scores,HashMap<Constituent<String>,Pair<Constituent<String>,Constituent<String>>> back){
+    public void getBinaryRules(List<String> sentence,int span,int begin,Counter<Constituent<String>> scores,HashMap<Constituent<String>,Pair<Constituent<String>,Constituent<String>>> back,HashMap<Pair<Integer,Integer>,HashSet<String>> seen){
     	int end = begin + span;
     	for(int split = begin + 1 ; split < end ; split ++){
-    		for(String B : grammar.binaryRulesByLeftChild.keySet()){
+    		HashSet<String> seenStrings = seen.get(new Pair<Integer,Integer>(begin,split));
+    		if(seenStrings == null) continue;
+    		for(String B : seenStrings ){
     			for(BinaryRule bRule : grammar.getBinaryRulesByLeftChild(B)){
+    				
     				Constituent<String> bConstituent = new Constituent<String>(bRule.getLeftChild(),begin,split);
     				Constituent<String> cConstituent = new Constituent<String>(bRule.getRightChild(),split,end);
     				Constituent<String> aConstituent = new Constituent<String>(bRule.getParent(),begin,end);
@@ -73,11 +79,18 @@ public class PCFGParserTwo implements Parser{
         			prob *= bRule.getScore();
         			if( prob > scores.getCount(aConstituent) ){
         				scores.setCount(aConstituent, prob);
+        				addSeen(seen,aConstituent.getStart(),aConstituent.getEnd(),aConstituent.getLabel());
         				back.put(aConstituent,new Pair<Constituent<String>,Constituent<String>>(bConstituent,cConstituent)); 
         			}
         		}		
     		}
     	}
+    }
+    
+    private void addSeen(HashMap<Pair<Integer,Integer>,HashSet<String>> seen, int begin,int end, String label){
+    	if(seen.get(new Pair<Integer,Integer>(begin,end)) == null) seen.put(new Pair<Integer,Integer>(begin,end),new HashSet<String>());
+		seen.get(new Pair<Integer,Integer>(begin,end)).add(label);
+		
     }
     
     private  Constituent<String> getBestRoot(Counter<Constituent<String>> scores,int numWords){
@@ -133,24 +146,23 @@ public class PCFGParserTwo implements Parser{
     public Tree<String> getBestParse(List<String> sentence) {
     	 Counter<Constituent<String>> scores = new Counter<Constituent<String>>();	
     	 HashMap<Constituent<String>,Pair<Constituent<String>,Constituent<String>>> back = new HashMap<Constituent<String>,Pair<Constituent<String>,Constituent<String>>>();	
-    	 
+    	 HashMap<Pair<Integer,Integer>,HashSet<String>> seen = new HashMap<Pair<Integer,Integer>,HashSet<String>>();
     	 //populate lowest layer of the parse tree
     	 for(int i = 0; i < sentence.size() ; i++){
-    		 getPretermRules(sentence,i,scores,back);
-    		 handleUnaries(sentence,i,i+1,scores,back,true);
+    		 getPretermRules(sentence,i,scores,back,seen);
+    		 handleUnaries(sentence,i,i+1,scores,back,true,seen);
     	 }
     	 
     	 for(int span = 2; span <= sentence.size() ; span++){
     		 for(int begin = 0; begin <= sentence.size() - span; begin++){
-    			getBinaryRules(sentence,span,begin,scores,back);
-    			handleUnaries(sentence,begin,begin+span,scores,back,false);
+    			getBinaryRules(sentence,span,begin,scores,back,seen);
+    			handleUnaries(sentence,begin,begin+span,scores,back,false,seen);
     		 }
     	 }
     	 //System.out.println("BUILDING TREE. . . ");
     	 //System.out.println(back);
     	 
     	 Tree<String> bestParse = buildTree(sentence,scores,back);
-    	 System.out.println(TreeAnnotations.unAnnotateTree(bestParse));
     	 return TreeAnnotations.unAnnotateTree(bestParse);
     }
 }
