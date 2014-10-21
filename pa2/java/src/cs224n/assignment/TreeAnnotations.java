@@ -28,14 +28,18 @@ public class TreeAnnotations {
 
     Tree<String> verticalTree = verticalMarkovization(unAnnotatedTree.deepCopy(), null);
     Tree<String> thirdVerticalTree = thirdVerticalMarkovization(unAnnotatedTree.deepCopy(), null, null);
-    System.out.println("original tree: ");
-    System.out.println("" + unAnnotatedTree);
+//    System.out.println("original tree: ");
+//    System.out.println("" + unAnnotatedTree);
     System.out.println("second order vertical tree: ");
     System.out.println("" + verticalTree);
-    System.out.println("third order vertical tree: ");
-    System.out.println("" + thirdVerticalTree);
+//    System.out.println("third order vertical tree: ");
+//    System.out.println("" + thirdVerticalTree);
 
-		return binarizeTree(unAnnotatedTree);
+//    System.out.println("binarized vertical tree: ");
+//    System.out.println("" + binarizeTree(verticalTree));
+
+    return binarizeTree(verticalTree);
+//    return binarizeTree(unAnnotatedTree);
 
 	}
 

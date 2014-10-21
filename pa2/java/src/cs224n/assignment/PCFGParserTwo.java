@@ -28,7 +28,10 @@ public class PCFGParserTwo implements Parser{
       // Build lexicon and grammar
     	lexicon = new Lexicon(trainTrees);
     	grammar = new Grammar(trainTrees);
+
     	//System.out.println(grammar);
+      System.out.println(grammar);
+      System.out.println("-----------------------");
     }
     
     public void getPretermRules(List<String> sentence,int i,Counter<Constituent<String>> scores,HashMap<Constituent<String>,Pair<Constituent<String>,Constituent<String>>> back,HashMap<Pair<Integer,Integer>,HashSet<String>> seen){
