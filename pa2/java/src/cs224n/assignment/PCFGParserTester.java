@@ -120,6 +120,23 @@ public class PCFGParserTester {
 			throw new RuntimeException("Bad data set mode: "+ dataSet+", use miniTest, or treebank."); 
 		}
 		parser.train(trainTrees);
+
+    // DELETE ME LATER!
+//    validationTrees = new ArrayList<Tree<String>>();
+//    Tree<String> vTree1 = new Tree<String>("S");
+//    List<Tree<String>> children = new ArrayList<Tree<String>>();
+//    Tree<String> a1 = new Tree<String>("A1", new ArrayList<Tree<String>>(Arrays.asList(new Tree<String>("cats"))));
+//    Tree<String> a2 = new Tree<String>("A2", new ArrayList<Tree<String>>(Arrays.asList(new Tree<String>("scratch"))));
+//    Tree<String> a3 = new Tree<String>("A3", new ArrayList<Tree<String>>(Arrays.asList(new Tree<String>("other"))));
+//    Tree<String> a4 = new Tree<String>("A4", new ArrayList<Tree<String>>(Arrays.asList(new Tree<String>("cats"))));
+//    children.add(a1);
+//    children.add(a2);
+//    children.add(a3);
+//    children.add(a4);
+//    vTree1.setChildren(children);
+//    validationTrees.add(new Tree<String>("ROOT", new ArrayList<Tree<String>>(Arrays.asList(vTree1))));
+//    parser.train(validationTrees);
+
 		testParser(parser, testTrees);
 	}
 }

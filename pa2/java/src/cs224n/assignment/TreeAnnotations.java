@@ -16,44 +16,114 @@ import cs224n.util.Filter;
  */
 public class TreeAnnotations {
 
-	public static Tree<String> annotateTree(Tree<String> unAnnotatedTree) {
+  /**
+   * Return a binarized tree with the appropriate vertical and horizontal markovization orders.
+   * @param unAnnotatedTree
+   * @param v vertical markovization order (default is 1)
+   * @param h horizontal markovization order (default is -1)
+   * @return
+   */
+	public static Tree<String> annotateTree(Tree<String> unAnnotatedTree, int v, int h) {
 
-		// Currently, the only annotation done is a lossless binarization
+    // No horizontal markovization
+    if (h == -1) {
+      switch (v) {
+        case 1:
+          // First order vertical markovization (just a binary tree; this is the default)
+          // v = 1, h = infinity tree (-1)
+          return binarizeTree(unAnnotatedTree);
+        case 2:
+          // Second order vertical markovization (marks nodes with their parent tag, i.e. NP^S)
+          // v = 2, h = infinity tree (-1)
+          return binarizeTree(secondVerticalMarkovization(unAnnotatedTree, null));
+        case 3:
+          // Third order vertical markovization (marks nodes with their parent and grandparent tags, i.e. N^NP^S)
+          // v = 3, h = infinity tree (-1)
+          return binarizeTree(thirdVerticalMarkovization(unAnnotatedTree, null, null));
+        default:
+          return null;
+      }
+    } else { // Use horizontal markovization
 
-		// TODO: change the annotation from a lossless binarization to a
-		// finite-order markov process (try at least 1st and 2nd order)
-
-		// TODO : mark nodes with the label of their parent nodes, giving a second
-		// order vertical markov process
-
-     Tree<String> verticalTree = verticalMarkovization(unAnnotatedTree.deepCopy(), null);
-      //Tree<String> thirdVerticalTree = thirdVerticalMarkovization(unAnnotatedTree.deepCopy(), null, null);
-//    System.out.println("original tree: ");
-//    System.out.println("" + unAnnotatedTree);
-    //System.out.println("second order vertical tree: ");
-    //System.out.println("" + verticalTree);
-//    System.out.println("third order vertical tree: ");
-//    System.out.println("" + thirdVerticalTree);
-
-//    System.out.println("binarized vertical tree: ");
-//    System.out.println("" + binarizeTree(verticalTree));
-
-    return binarizeTree(verticalTree);
-    //return binarizeTree(unAnnotatedTree);
+      // First order horizontal markovization (maintains one node of context, i.e. S->...NP, but stored as @S->_NP)
+      Tree<String> hTree = horizontalMarkovization(unAnnotatedTree);
+      switch (v) {
+        case 1:
+          // Only horizontal markovization; v = 1, h = 1 tree
+          return hTree;
+        case 2:
+          // Mixed v = 2, h = 1 tree
+          return secondVerticalMarkovization(hTree, null);
+        case 3:
+          // Mixed v = 3, h = 1 tree
+          return thirdVerticalMarkovization(hTree, null, null);
+        default:
+          return null;
+      }
+    }
 
 	}
+
+  /**
+   * First order horizontal markovization. Marks tags according to the description in the
+   * Klein, Manning paper.
+   */
+  private static Tree<String> horizontalMarkovization(Tree<String> tree) {
+    String label = tree.getLabel();
+    if (tree.isLeaf())
+      return new Tree<String>(label);
+    if (tree.getChildren().size() == 1) {
+      return new Tree<String>
+        (label,
+          Collections.singletonList(horizontalMarkovization(tree.getChildren().get(0))));
+    }
+    // otherwise, it's a binary-or-more local tree,
+    // so decompose it into a sequence of binary and unary trees.
+    String intermediateLabel = "@"+label+"->";
+    Tree<String> intermediateTree =
+      horizontalMarkovizationHelper(tree, 0, intermediateLabel);
+    return new Tree<String>(label, intermediateTree.getChildren());
+  }
+
+  /**
+   * Helper method for the horizontal markovization method.
+   */
+  private static Tree<String> horizontalMarkovizationHelper(
+    Tree<String> tree,
+    int numChildrenGenerated,
+    String intermediateLabel)
+  {
+    Tree<String> leftTree = tree.getChildren().get(numChildrenGenerated);
+    List<Tree<String>> children = new ArrayList<Tree<String>>();
+    children.add(horizontalMarkovization(leftTree));
+
+    int end = intermediateLabel.indexOf(">") + 1;
+    String newLabel = (end == 0)
+      ? intermediateLabel
+      : intermediateLabel.substring(0, end);
+
+    if (numChildrenGenerated < tree.getChildren().size() - 1) {
+      Tree<String> rightTree =
+        horizontalMarkovizationHelper(tree, numChildrenGenerated + 1,
+          newLabel + "_" + leftTree.getLabel());
+      children.add(rightTree);
+    }
+    return new Tree<String>(intermediateLabel, children);
+  }
+
+
 
   /**
    * Second order vertical markovization. Marks all non-terminal nodes (including preterminals,
    * but not the ROOT or terminals) with the label of their parent tag.
    */
-  private static Tree<String> verticalMarkovization(Tree<String> tree, String parentTag) {
-    if (tree.getChildren().isEmpty()) {
+  private static Tree<String> secondVerticalMarkovization(Tree<String> tree, String parentTag) {
+    if (tree.isLeaf()) {
       return new Tree<String>(tree.getLabel());
     }
     List<Tree<String>> children = new ArrayList<Tree<String>>();
     for (Tree<String> child : tree.getChildren()) {
-      children.add(verticalMarkovization(child, tree.getLabel()));
+      children.add(secondVerticalMarkovization(child, tree.getLabel()));
     }
     if (parentTag != null) {
       tree.setLabel(tree.getLabel() + "^" + parentTag);
@@ -63,11 +133,12 @@ public class TreeAnnotations {
   }
 
   /**
-   * Second order vertical markovization. Marks all non-terminals (including preterminals,
-   * but not ROOT or terminals) with their parent tag as well.
+   * Third order vertical markovization. Marks all non-terminals (including preterminals,
+   * but not the ROOT or terminals) with the label of their parent tag and the label of their
+   * grandparent tag.
    */
   private static Tree<String> thirdVerticalMarkovization(Tree<String> tree, String parentTag, String grandParentTag) {
-    if (tree.getChildren().isEmpty()) {
+    if (tree.isLeaf()) {
       return new Tree<String>(tree.getLabel());
     }
     List<Tree<String>> children = new ArrayList<Tree<String>>();

@@ -21,9 +21,14 @@ public class PCFGParserTwo implements Parser{
    * @param trainTrees list of annotated trees to train on
    */
     public void train(List<Tree<String>> trainTrees) {
-      // Binarize the training trees
+
+      // Set the vertical and horizontal markovization orders (default is v = 1, h = -1)
+      int v = 1;
+      int h = -1;
+
+      // Binarize (and markovize) the training trees
     	for (int i = 0; i < trainTrees.size(); i++) {
-    		trainTrees.set(i, TreeAnnotations.annotateTree(trainTrees.get(i)));
+    		trainTrees.set(i, TreeAnnotations.annotateTree(trainTrees.get(i), v, h));
     	}
       // Build lexicon and grammar
     	lexicon = new Lexicon(trainTrees);
@@ -39,7 +44,6 @@ public class PCFGParserTwo implements Parser{
     	}
     }
     
-    
     public void handleUnaries(int begin,int end,Counter<Constituent<String>> scores,HashMap<Constituent<String>,Pair<Constituent<String>,Constituent<String>>> back,boolean onlyUnary,HashMap<Pair<Integer,Integer>,HashSet<String>> seen){
     	boolean added = true;
     	HashSet<String> cands = new HashSet<String>();
@@ -47,7 +51,6 @@ public class PCFGParserTwo implements Parser{
 		
     	while(added){
     		added = false;
-    		HashSet<String> toAdd = seen.get(new Pair<Integer,Integer>(begin,end));
     		if(toAdd == null) break;
     		cands.addAll(toAdd);
     		for(String child : cands){
@@ -130,11 +133,7 @@ public class PCFGParserTwo implements Parser{
     		seen.get(new Pair<Integer,Integer>(begin,end)).add(label);
     	}
     }
-    
-//    private  Constituent<String> getBestRoot(int numWords){
-//    	return new Constituent<String>("ROOT",0,numWords);
-//    }
-    
+
     private Tree<String> merge( Tree<String> t1, Tree<String> t2,Constituent<String> currentNode){
     	List<Tree<String>> children = new ArrayList<Tree<String>>();
         if(t1 != null) children.add(t1);
@@ -162,7 +161,6 @@ public class PCFGParserTwo implements Parser{
     	Constituent<String> child2 = children.getSecond();
 
     	//call recursive build to remove unary rules, as long as child1 is a nonterminal.
-
     	Tree<String> subTree1 = recursiveBuildTree(child1,back);
     	Tree<String> subTree2 = recursiveBuildTree(child2,back);
     	return merge(subTree1,subTree2,currentNode);
@@ -190,7 +188,7 @@ public class PCFGParserTwo implements Parser{
         getPretermRules(sentence,i,scores,back,seen);
         handleUnaries(i,i+1,scores,back,true,seen);
     	}
-    	 
+      
     	for(int span = 2; span <= len; span++){
     	  for(int begin = 0; begin <= len - span; begin++){
     			getBinaryRules(span,begin,scores,back,seen);

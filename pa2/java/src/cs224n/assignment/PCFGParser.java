@@ -25,7 +25,7 @@ public class PCFGParser implements Parser {
 
       // Binarize the training trees
       for (int i = 0; i < trainTrees.size(); i++) {
-        trainTrees.set(i, TreeAnnotations.annotateTree(trainTrees.get(i)));
+        trainTrees.set(i, TreeAnnotations.annotateTree(trainTrees.get(i), 1, -1));
       }
 
       // Build lexicon and grammar
