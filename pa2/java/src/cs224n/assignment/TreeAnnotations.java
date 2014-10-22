@@ -26,8 +26,8 @@ public class TreeAnnotations {
 		// TODO : mark nodes with the label of their parent nodes, giving a second
 		// order vertical markov process
 
-    //Tree<String> verticalTree = verticalMarkovization(unAnnotatedTree.deepCopy(), null);
-    //Tree<String> thirdVerticalTree = thirdVerticalMarkovization(unAnnotatedTree.deepCopy(), null, null);
+     Tree<String> verticalTree = verticalMarkovization(unAnnotatedTree.deepCopy(), null);
+      //Tree<String> thirdVerticalTree = thirdVerticalMarkovization(unAnnotatedTree.deepCopy(), null, null);
 //    System.out.println("original tree: ");
 //    System.out.println("" + unAnnotatedTree);
     //System.out.println("second order vertical tree: ");
@@ -38,8 +38,8 @@ public class TreeAnnotations {
 //    System.out.println("binarized vertical tree: ");
 //    System.out.println("" + binarizeTree(verticalTree));
 
-    //return binarizeTree(verticalTree);
-    return binarizeTree(unAnnotatedTree);
+    return binarizeTree(verticalTree);
+    //return binarizeTree(unAnnotatedTree);
 
 	}
 
