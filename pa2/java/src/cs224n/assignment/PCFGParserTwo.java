@@ -30,8 +30,8 @@ public class PCFGParserTwo implements Parser{
     	grammar = new Grammar(trainTrees);
 
     	//System.out.println(grammar);
-      System.out.println(grammar);
-      System.out.println("-----------------------");
+      //System.out.println(grammar);
+      //System.out.println("-----------------------");
     }
     
     public void getPretermRules(List<String> sentence,int i,Counter<Constituent<String>> scores,HashMap<Constituent<String>,Pair<Constituent<String>,Constituent<String>>> back,HashMap<Pair<Integer,Integer>,HashSet<String>> seen){
@@ -46,15 +46,24 @@ public class PCFGParserTwo implements Parser{
     
     public void handleUnaries(List<String> sentence,int begin,int end,Counter<Constituent<String>> scores,HashMap<Constituent<String>,Pair<Constituent<String>,Constituent<String>>> back,boolean onlyUnary,HashMap<Pair<Integer,Integer>,HashSet<String>> seen){
     	boolean added = true;
+    	HashSet<String> cands = new HashSet<String>();
     	while(added){
     		added = false;
-    		for(String child : grammar.unaryRulesByChild.keySet()){
+    		//HashSet<String> cands = new HashSet<String>();
+    		HashSet<String> toAdd = seen.get(new Pair<Integer,Integer>(begin,end));
+    		if(toAdd == null) break;
+    		cands.addAll(toAdd);// grammar.unaryRulesByChild.keySet()
+    		for(String child : cands){
     			for(UnaryRule uRule : grammar.getUnaryRulesByChild(child) ){
+    				//if(uRule.getParent().equals("ROOT")) System.out.println("ROOT FOUND!");
     				Constituent<String> childConstituent = new Constituent<String>(uRule.getChild(),begin,end);
     				Constituent<String> parentConstituent = new Constituent<String>(uRule.getParent(),begin,end);   					
     				if(!onlyUnary || scores.getCount(childConstituent) > 0 ){
     					double prob = scores.getCount(childConstituent) * uRule.getScore();
+    					//if(uRule.getParent().equals("ROOT")) System.out.println("ROOT CONSIDERED! WITH PROB = "+ prob + " AND CHILD = " + uRule.getChild() + "AND OLD SCORE = " + scores.getCount(parentConstituent));
     					if(prob > scores.getCount(parentConstituent)){	
+    						added = true;
+    						//if(uRule.getParent().equals("ROOT")) System.out.println("ROOT ADDED!");
     						scores.setCount(parentConstituent, prob);
     						addSeen(seen,parentConstituent.getStart(),parentConstituent.getEnd(),parentConstituent.getLabel());
     						back.put(parentConstituent, new Pair<Constituent<String>,Constituent<String>>(childConstituent,null));
@@ -69,15 +78,31 @@ public class PCFGParserTwo implements Parser{
     	int end = begin + span;
     	for(int split = begin + 1 ; split < end ; split ++){
     		HashSet<String> seenStrings = seen.get(new Pair<Integer,Integer>(begin,split));
+    		HashSet<String> seenStringsEnd = seen.get(new Pair<Integer,Integer>(split,end));
+    		if(seenStringsEnd == null) continue;
     		if(seenStrings == null) continue;
+    		boolean isRightChild = false;
+    		if(seenStringsEnd.size() < seenStrings.size()){
+    			isRightChild = true;
+    			seenStrings = seenStringsEnd;
+    		}
+    		
     		for(String B : seenStrings ){
-    			for(BinaryRule bRule : grammar.getBinaryRulesByLeftChild(B)){
-    				
+    			List<BinaryRule >rules;
+    			
+    			if(!isRightChild){
+    				rules = grammar.getBinaryRulesByLeftChild(B);
+    			}else{
+    				rules = grammar.getBinaryRulesByRightChild(B);
+    			}
+    			
+    			for(BinaryRule bRule : rules ){
     				Constituent<String> bConstituent = new Constituent<String>(bRule.getLeftChild(),begin,split);
     				Constituent<String> cConstituent = new Constituent<String>(bRule.getRightChild(),split,end);
     				Constituent<String> aConstituent = new Constituent<String>(bRule.getParent(),begin,end);
-        			
-    				double prob = scores.getCount(bConstituent) * scores.getCount(cConstituent) ;
+
+    				double bScore = scores.getCount(bConstituent);
+    				double prob =  bScore* scores.getCount(cConstituent) ;
         			//prior on rule
         			prob *= bRule.getScore();
         			if( prob > scores.getCount(aConstituent) ){
@@ -91,9 +116,13 @@ public class PCFGParserTwo implements Parser{
     }
     
     private void addSeen(HashMap<Pair<Integer,Integer>,HashSet<String>> seen, int begin,int end, String label){
-    	if(seen.get(new Pair<Integer,Integer>(begin,end)) == null) seen.put(new Pair<Integer,Integer>(begin,end),new HashSet<String>());
-		seen.get(new Pair<Integer,Integer>(begin,end)).add(label);
-		
+    	if(seen.get(new Pair<Integer,Integer>(begin,end)) == null) {
+    		HashSet<String> toAdd = new HashSet<String>();
+    		toAdd.add(label);
+    		seen.put(new Pair<Integer,Integer>(begin,end),toAdd);
+    	}else{
+    		seen.get(new Pair<Integer,Integer>(begin,end)).add(label);
+    	}
     }
     
     private  Constituent<String> getBestRoot(Counter<Constituent<String>> scores,int numWords){
@@ -117,9 +146,18 @@ public class PCFGParserTwo implements Parser{
         return new Tree<String>(currentNode.getLabel(), children);
     }
     
+    private void print_back(HashMap<Constituent<String>,Pair<Constituent<String>,Constituent<String>>> back){
+    	System.out.println("HERE!!!!!!!!");
+    	for(Constituent<String> c : back.keySet()){
+    		System.out.println("!!" + c.getLabel() + " START: " +c.getStart() +" END: " + c.getEnd() + " --> " +  (back.get(c).getFirst() != null? back.get(c).getFirst().getLabel():"") + "  " + (back.get(c).getSecond() != null ? back.get(c).getSecond().getLabel(): ""));
+    		
+    	}
+    }
+    
     private Tree<String> recursiveBuildTree(Constituent<String> currentNode, HashMap<Constituent<String>,Pair<Constituent<String>,Constituent<String>>> back){
     	if(currentNode == null) return null;
     	Pair<Constituent<String>,Constituent<String>> children = back.get(currentNode);
+    	
     	//at a terminal, I hope!
     	if(children == null) return new Tree<String>(currentNode.getLabel());
     	
@@ -127,9 +165,7 @@ public class PCFGParserTwo implements Parser{
     	Constituent<String> child1 = children.getFirst(); 
     	Constituent<String> child2 = children.getSecond();
     	//call recursive build to remove unary rules, as long as child1 is a nonterminal.
-    	//if(child2 == null && back.get(child1) != null){
-    	//	return recursiveBuildTree(child1,back);
-    	//}
+    	if(child2!=null)System.out.println("CHILLD 2 :" + child2.getLabel());
     	
     	Tree<String> subTree1 = recursiveBuildTree(child1,back);
     	Tree<String> subTree2 = recursiveBuildTree(child2,back);
@@ -162,9 +198,6 @@ public class PCFGParserTwo implements Parser{
     			handleUnaries(sentence,begin,begin+span,scores,back,false,seen);
     		 }
     	 }
-    	 //System.out.println("BUILDING TREE. . . ");
-    	 //System.out.println(back);
-    	 
     	 Tree<String> bestParse = buildTree(sentence,scores,back);
     	 return TreeAnnotations.unAnnotateTree(bestParse);
     }

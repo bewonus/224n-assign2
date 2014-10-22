@@ -23,13 +23,18 @@ public class PCFGParserTester {
 				new EnglishPennTreebankParseEvaluator.LabeledConstituentEval<String>
 		(Collections.singleton("ROOT"), 
 				new HashSet<String>(Arrays.asList(new String[] {"''", "``", ".", ":", ","})));
+		int counter = 0;
+		
 		for (Tree<String> testTree : testTrees) {
+			counter ++;
 			List<String> testSentence = testTree.getYield();
 			if (testSentence.size() > MAX_LENGTH)
 				continue;
 			Tree<String> guessedTree = parser.getBestParse(testSentence);
 			System.out.println("Guess:\n"+Trees.PennTreeRenderer.render(guessedTree));
 			System.out.println("Gold:\n"+Trees.PennTreeRenderer.render(testTree));
+			System.out.println("NUMBER PARSED" + counter);
+			System.out.println("TOTAL " + testTrees.size());
 			eval.evaluate(guessedTree, testTree);
 		}
 		eval.display(true);
