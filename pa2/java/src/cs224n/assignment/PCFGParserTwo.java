@@ -28,14 +28,10 @@ public class PCFGParserTwo implements Parser{
       // Build lexicon and grammar
     	lexicon = new Lexicon(trainTrees);
     	grammar = new Grammar(trainTrees);
-
-    	//System.out.println(grammar);
-      //System.out.println(grammar);
-      //System.out.println("-----------------------");
     }
     
     public void getPretermRules(List<String> sentence,int i,Counter<Constituent<String>> scores,HashMap<Constituent<String>,Pair<Constituent<String>,Constituent<String>>> back,HashMap<Pair<Integer,Integer>,HashSet<String>> seen){
-    	for(String A:lexicon.tagCounter.keySet()){
+    	for(String A:lexicon.getAllTags()){
     		double score = lexicon.scoreTagging(sentence.get(i), A);
     		scores.setCount(new Constituent<String>(A,i,i+1), score);
     		addSeen(seen,i,i+1,A);
@@ -44,28 +40,25 @@ public class PCFGParserTwo implements Parser{
     }
     
     
-    public void handleUnaries(List<String> sentence,int begin,int end,Counter<Constituent<String>> scores,HashMap<Constituent<String>,Pair<Constituent<String>,Constituent<String>>> back,boolean onlyUnary,HashMap<Pair<Integer,Integer>,HashSet<String>> seen){
+    public void handleUnaries(int begin,int end,Counter<Constituent<String>> scores,HashMap<Constituent<String>,Pair<Constituent<String>,Constituent<String>>> back,boolean onlyUnary,HashMap<Pair<Integer,Integer>,HashSet<String>> seen){
     	boolean added = true;
     	HashSet<String> cands = new HashSet<String>();
     	while(added){
     		added = false;
-    		//HashSet<String> cands = new HashSet<String>();
     		HashSet<String> toAdd = seen.get(new Pair<Integer,Integer>(begin,end));
     		if(toAdd == null) break;
-    		cands.addAll(toAdd);// grammar.unaryRulesByChild.keySet()
+    		cands.addAll(toAdd);
     		for(String child : cands){
     			for(UnaryRule uRule : grammar.getUnaryRulesByChild(child) ){
-    				//if(uRule.getParent().equals("ROOT")) System.out.println("ROOT FOUND!");
     				Constituent<String> childConstituent = new Constituent<String>(uRule.getChild(),begin,end);
-    				Constituent<String> parentConstituent = new Constituent<String>(uRule.getParent(),begin,end);   					
-    				if(!onlyUnary || scores.getCount(childConstituent) > 0 ){
-    					double prob = scores.getCount(childConstituent) * uRule.getScore();
-    					//if(uRule.getParent().equals("ROOT")) System.out.println("ROOT CONSIDERED! WITH PROB = "+ prob + " AND CHILD = " + uRule.getChild() + "AND OLD SCORE = " + scores.getCount(parentConstituent));
+    				Constituent<String> parentConstituent = new Constituent<String>(uRule.getParent(),begin,end);
+            double childScores = scores.getCount(childConstituent);
+    				if(!onlyUnary || childScores > 0 ){
+    					double prob = childScores * uRule.getScore();
     					if(prob > scores.getCount(parentConstituent)){	
     						added = true;
-    						//if(uRule.getParent().equals("ROOT")) System.out.println("ROOT ADDED!");
     						scores.setCount(parentConstituent, prob);
-    						addSeen(seen,parentConstituent.getStart(),parentConstituent.getEnd(),parentConstituent.getLabel());
+    						addSeen(seen,begin,end,parentConstituent.getLabel());
     						back.put(parentConstituent, new Pair<Constituent<String>,Constituent<String>>(childConstituent,null));
     					}
     				} 
@@ -74,7 +67,7 @@ public class PCFGParserTwo implements Parser{
     	}
     }
     
-    public void getBinaryRules(List<String> sentence,int span,int begin,Counter<Constituent<String>> scores,HashMap<Constituent<String>,Pair<Constituent<String>,Constituent<String>>> back,HashMap<Pair<Integer,Integer>,HashSet<String>> seen){
+    public void getBinaryRules(int span,int begin,Counter<Constituent<String>> scores,HashMap<Constituent<String>,Pair<Constituent<String>,Constituent<String>>> back,HashMap<Pair<Integer,Integer>,HashSet<String>> seen){
     	int end = begin + span;
     	for(int split = begin + 1 ; split < end ; split ++){
     		HashSet<String> seenStrings = seen.get(new Pair<Integer,Integer>(begin,split));
@@ -125,19 +118,9 @@ public class PCFGParserTwo implements Parser{
     	}
     }
     
-    private  Constituent<String> getBestRoot(Counter<Constituent<String>> scores,int numWords){
-    	return new Constituent<String>("ROOT",0,numWords);
-    	
-    	/*double max = -1;
-    	Constituent<String> bestRoot = null;
-    	for(Constituent<String> constituent : scores.keySet()){
-    		if(scores.getCount(constituent) > max && constituent.getEnd() == numWords && constituent.getStart() == 0){
-    			max = scores.getCount(constituent);
-    			bestRoot = constituent;
-    		}
-    	}
-    	return bestRoot;*/
-    }
+//    private  Constituent<String> getBestRoot(int numWords){
+//    	return new Constituent<String>("ROOT",0,numWords);
+//    }
     
     private Tree<String> merge( Tree<String> t1, Tree<String> t2,Constituent<String> currentNode){
     	List<Tree<String>> children = new ArrayList<Tree<String>>();
@@ -164,17 +147,16 @@ public class PCFGParserTwo implements Parser{
     	//else, not not a terminal
     	Constituent<String> child1 = children.getFirst(); 
     	Constituent<String> child2 = children.getSecond();
+
     	//call recursive build to remove unary rules, as long as child1 is a nonterminal.
-    	if(child2!=null)System.out.println("CHILLD 2 :" + child2.getLabel());
-    	
     	Tree<String> subTree1 = recursiveBuildTree(child1,back);
     	Tree<String> subTree2 = recursiveBuildTree(child2,back);
     	return merge(subTree1,subTree2,currentNode);
     	
     }
     
-    private Tree<String> buildTree(List<String> sentence,Counter<Constituent<String>> scores,HashMap<Constituent<String>,Pair<Constituent<String>,Constituent<String>>> back){
-    	Constituent<String> bestRoot = getBestRoot(scores,sentence.size());
+    private Tree<String> buildTree(int len, HashMap<Constituent<String>,Pair<Constituent<String>,Constituent<String>>> back){
+    	Constituent<String> bestRoot = new Constituent<String>("ROOT",0,len);
     	return recursiveBuildTree(bestRoot,back);
     }
   /**
@@ -183,22 +165,25 @@ public class PCFGParserTwo implements Parser{
    * @return most probable parse tree of sentence
    */
     public Tree<String> getBestParse(List<String> sentence) {
-    	 Counter<Constituent<String>> scores = new Counter<Constituent<String>>();	
-    	 HashMap<Constituent<String>,Pair<Constituent<String>,Constituent<String>>> back = new HashMap<Constituent<String>,Pair<Constituent<String>,Constituent<String>>>();	
-    	 HashMap<Pair<Integer,Integer>,HashSet<String>> seen = new HashMap<Pair<Integer,Integer>,HashSet<String>>();
+    	Counter<Constituent<String>> scores = new Counter<Constituent<String>>();
+    	HashMap<Constituent<String>,Pair<Constituent<String>,Constituent<String>>> back = new HashMap<Constituent<String>,Pair<Constituent<String>,Constituent<String>>>();
+      HashMap<Pair<Integer,Integer>,HashSet<String>> seen = new HashMap<Pair<Integer,Integer>,HashSet<String>>();
+
+      int len = sentence.size();
+
     	 //populate lowest layer of the parse tree
-    	 for(int i = 0; i < sentence.size() ; i++){
-    		 getPretermRules(sentence,i,scores,back,seen);
-    		 handleUnaries(sentence,i,i+1,scores,back,true,seen);
-    	 }
+    	for(int i = 0; i < len; i++){
+        getPretermRules(sentence,i,scores,back,seen);
+        handleUnaries(i,i+1,scores,back,true,seen);
+    	}
     	 
-    	 for(int span = 2; span <= sentence.size() ; span++){
-    		 for(int begin = 0; begin <= sentence.size() - span; begin++){
-    			getBinaryRules(sentence,span,begin,scores,back,seen);
-    			handleUnaries(sentence,begin,begin+span,scores,back,false,seen);
-    		 }
-    	 }
-    	 Tree<String> bestParse = buildTree(sentence,scores,back);
-    	 return TreeAnnotations.unAnnotateTree(bestParse);
+    	for(int span = 2; span <= len; span++){
+    	  for(int begin = 0; begin <= len - span; begin++){
+    			getBinaryRules(span,begin,scores,back,seen);
+    			handleUnaries(begin,begin+span,scores,back,false,seen);
+    		}
+    	}
+    	Tree<String> bestParse = buildTree(len, back);
+    	return TreeAnnotations.unAnnotateTree(bestParse);
     }
 }
