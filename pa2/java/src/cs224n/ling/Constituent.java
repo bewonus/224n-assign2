@@ -39,6 +39,8 @@ public class Constituent<L> {
   public int hashCode() {
     int result;
     result = (label != null ? label.hashCode() : 0);
+//    result = (result << 5) - result + start;
+//    result = (result << 5) - result + end;
     result = 29 * result + start;
     result = 29 * result + end;
     return result;
